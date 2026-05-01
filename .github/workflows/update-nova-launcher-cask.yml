@@ -1,0 +1,139 @@
+name: Update Nova Launcher Cask
+
+on:
+  repository_dispatch:
+    types:
+      - nova-launcher-release
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Nova Launcher version without the leading v"
+        required: true
+        type: string
+      sha256:
+        description: "SHA-256 checksum for the release zip"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nova-launcher-cask
+  cancel-in-progress: false
+
+jobs:
+  update-cask:
+    name: Update cask
+    runs-on: macos-26
+
+    steps:
+      - name: Check out tap
+        uses: actions/checkout@v4
+
+      - name: Resolve release payload
+        id: release
+        env:
+          DISPATCH_VERSION: ${{ github.event.client_payload.version }}
+          DISPATCH_SHA256: ${{ github.event.client_payload.sha256 }}
+          DISPATCH_TAG: ${{ github.event.client_payload.tag }}
+          DISPATCH_ASSET_URL: ${{ github.event.client_payload.asset_url }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_SHA256: ${{ inputs.sha256 }}
+        run: |
+          set -euo pipefail
+
+          version="${DISPATCH_VERSION:-${INPUT_VERSION:-}}"
+          sha256="${DISPATCH_SHA256:-${INPUT_SHA256:-}}"
+          tag="${DISPATCH_TAG:-v${version}}"
+          asset_url="${DISPATCH_ASSET_URL:-https://github.com/suho/nova-launcher/releases/download/v${version}/NovaLauncher-${version}.zip}"
+
+          if [[ ! "${version}" =~ ^[0-9]+(\.[0-9]+){1,2}([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must look like 0.1.0; got ${version}"
+            exit 1
+          fi
+
+          if [[ ! "${tag}" == "v${version}" ]]; then
+            echo "::error::Tag ${tag} does not match version ${version}"
+            exit 1
+          fi
+
+          if [[ ! "${sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "::error::SHA-256 must be 64 lowercase hexadecimal characters."
+            exit 1
+          fi
+
+          expected_url="https://github.com/suho/nova-launcher/releases/download/v${version}/NovaLauncher-${version}.zip"
+          if [[ "${asset_url}" != "${expected_url}" ]]; then
+            echo "::error::Unexpected asset URL ${asset_url}; expected ${expected_url}"
+            exit 1
+          fi
+
+          {
+            echo "version=${version}"
+            echo "sha256=${sha256}"
+            echo "asset_url=${asset_url}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - name: Update cask file
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA256: ${{ steps.release.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+
+          ruby <<'RUBY'
+          version = ENV.fetch("VERSION")
+          sha256 = ENV.fetch("SHA256")
+
+          template = <<~'CASK'
+            cask "nova-launcher" do
+              version "__VERSION__"
+              sha256 "__SHA256__"
+
+              url "https://github.com/suho/nova-launcher/releases/download/v#{version}/NovaLauncher-#{version}.zip"
+              name "Nova Launcher"
+              desc "Keyboard-first launcher for local applications"
+              homepage "https://github.com/suho/nova-launcher"
+
+              depends_on macos: ">= :tahoe"
+
+              app "NovaLauncher.app"
+
+              uninstall quit: "dev.suho.NovaLauncher"
+
+              zap trash: "~/Library/Preferences/dev.suho.NovaLauncher.plist"
+            end
+          CASK
+
+          File.write(
+            "Casks/nova-launcher.rb",
+            template.gsub("__VERSION__", version).gsub("__SHA256__", sha256)
+          )
+          RUBY
+
+      - name: Validate cask
+        run: |
+          set -euo pipefail
+          ruby -c Casks/nova-launcher.rb
+          brew style Casks/nova-launcher.rb
+
+      - name: Commit cask update
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          SOURCE_REPOSITORY: ${{ github.event.client_payload.source_repository }}
+          SOURCE_SHA: ${{ github.event.client_payload.source_sha }}
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- Casks/nova-launcher.rb; then
+            echo "Cask already up to date for ${VERSION}."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/nova-launcher.rb
+          git commit -m "Update Nova Launcher to ${VERSION}" \
+            -m "Source: ${SOURCE_REPOSITORY:-suho/nova-launcher}@${SOURCE_SHA:-unknown}"
+          git push
