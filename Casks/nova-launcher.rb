@@ -1,6 +1,6 @@
 cask "nova-launcher" do
   version "0.1.0"
-  sha256 "258a720f8b89dcfc1466d53905257fe5c27f2ff19349f65a4af649307ab3dcf0"
+  sha256 "103522c30fabe93b71ad56e5d550ca30cd63e0fed6cd5a0757e43c98a13105f6"
 
   url "https://github.com/suho/nova-launcher/releases/download/v#{version}/NovaLauncher-#{version}.zip"
   name "Nova Launcher"
