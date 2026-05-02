@@ -11,7 +11,7 @@ cask "nova-launcher" do
 
   app "NovaLauncher.app"
 
-  uninstall quit: "dev.suho.NovaLauncher"
+  uninstall quit: "app.nova-launcher"
 
-  zap trash: "~/Library/Preferences/dev.suho.NovaLauncher.plist"
+  zap trash: "~/Library/Preferences/app.nova-launcher.plist"
 end
