@@ -1,6 +1,6 @@
 cask "nova-launcher" do
-  version "0.1.0"
-  sha256 "103522c30fabe93b71ad56e5d550ca30cd63e0fed6cd5a0757e43c98a13105f6"
+  version "0.2.0"
+  sha256 "82bfbaf8618bb4d26040d25fdc6d908f036aa0a9c263a1ddca98eb391be00656"
 
   url "https://github.com/suho/nova-launcher/releases/download/v#{version}/NovaLauncher-#{version}.zip"
   name "Nova Launcher"
@@ -11,7 +11,7 @@ cask "nova-launcher" do
 
   app "NovaLauncher.app"
 
-  uninstall quit: "app.nova-launcher"
+  uninstall quit: "dev.suho.NovaLauncher"
 
-  zap trash: "~/Library/Preferences/app.nova-launcher.plist"
+  zap trash: "~/Library/Preferences/dev.suho.NovaLauncher.plist"
 end
