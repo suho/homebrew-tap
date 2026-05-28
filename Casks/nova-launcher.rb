@@ -7,7 +7,7 @@ cask "nova-launcher" do
   desc "Keyboard-first launcher for local applications"
   homepage "https://github.com/suho/nova-launcher"
 
-  depends_on macos: ">= :tahoe"
+  depends_on macos: :tahoe
 
   app "NovaLauncher.app"
 
